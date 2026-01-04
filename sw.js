@@ -1,20 +1,29 @@
 // Service Worker for offline functionality
-const CACHE_NAME = 'wildlife-tracker-v1';
+const CACHE_NAME = 'wildlife-tracker-v2';
 const urlsToCache = [
-  '/index.html',
-  '/app.js',
-  '/manifest.json',
+  './',
+  './index.html',
+  './app.js',
+  './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
 ];
 
 // Install service worker and cache resources
 self.addEventListener('install', (event) => {
+  console.log('Service Worker: Installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Opened cache');
+        console.log('Service Worker: Caching files');
         return cache.addAll(urlsToCache);
+      })
+      .then(() => {
+        console.log('Service Worker: Installed');
+        return self.skipWaiting();
       })
   );
 });
@@ -26,8 +35,11 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         // Cache hit - return response
         if (response) {
+          console.log('Service Worker: Serving from cache:', event.request.url);
           return response;
         }
+        
+        console.log('Service Worker: Fetching from network:', event.request.url);
         
         // Clone the request
         const fetchRequest = event.request.clone();
@@ -43,10 +55,20 @@ self.addEventListener('fetch', (event) => {
           
           caches.open(CACHE_NAME)
             .then((cache) => {
-              cache.put(event.request, responseToCache);
+              // Cache OpenStreetMap tiles for offline use
+              if (event.request.url.includes('tile.openstreetmap.org')) {
+                cache.put(event.request, responseToCache);
+              } else if (event.request.url.includes(self.location.origin)) {
+                // Cache our own files
+                cache.put(event.request, responseToCache);
+              }
             });
           
           return response;
+        }).catch(() => {
+          // Network failed, return offline page or cached version
+          console.log('Service Worker: Network failed, checking cache');
+          return caches.match('./index.html');
         });
       })
   );
@@ -54,6 +76,7 @@ self.addEventListener('fetch', (event) => {
 
 // Update service worker
 self.addEventListener('activate', (event) => {
+  console.log('Service Worker: Activating...');
   const cacheWhitelist = [CACHE_NAME];
   
   event.waitUntil(
@@ -61,10 +84,14 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
+            console.log('Service Worker: Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      console.log('Service Worker: Activated');
+      return self.clients.claim();
     })
   );
 });
