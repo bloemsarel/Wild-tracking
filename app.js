@@ -59,9 +59,34 @@ class WildlifeTracker {
         
         // Register service worker for offline functionality
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => {
-                console.log('Service Worker registration failed:', err);
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registered successfully:', registration);
+                        
+                        // Check for updates every time app loads
+                        registration.update();
+                        
+                        // Listen for updates
+                        registration.addEventListener('updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New service worker available, show update message
+                                    if (confirm('Nuwe weergawe beskikbaar! Herlaai vir opdatering?')) {
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        });
+                    })
+                    .catch(err => {
+                        console.log('Service Worker registration failed:', err);
+                    });
             });
+        } else {
+            console.log('Service Worker not supported in this browser');
+            this.showAlert('Hierdie blaaier ondersteun nie offline modus nie. Gebruik Chrome.', 'error');
         }
     }
     
