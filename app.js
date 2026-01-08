@@ -9,6 +9,8 @@ const SPECIES_LIST = [
     'Nyala',
     'Bastergemsbok',
     'Rooihartbees',
+    'Kameelperd',
+    'Baster hartebees',
     'Jagluiperd',
     'Seekoei',
     'Renoster (Wit)',
